@@ -6,6 +6,11 @@ const { VTEXBlockMapper } = require('./services/vtexBlockMapper')
 
 
 class VTEXConverter {
+  constructor() {
+    // Initialize the block mapper
+    this.blockMapper = new VTEXBlockMapper();
+  }
+
   async convert(figmaFile, pageName, layerId) {
     // Encontrar a página e a camada selecionada
     const page = figmaFile.document.children.find(p => p.name === pageName)
@@ -147,51 +152,52 @@ class VTEXConverter {
   }
 
   getBlockType(node) {
-    return this.blockMapper.getBlockType(node)
+    return this.blockMapper.getBlockType(node);
   }
 
   extractProps(node) {
-    return this.blockMapper.getBlockProps(node)
+    return this.blockMapper.getBlockProps(node);
   }
 
   isImage(node) {
     // Verificar se o nó tem preenchimento de imagem
-    return node.fills && node.fills.some(fill => fill.type === 'IMAGE')
+    return node.fills && node.fills.some(fill => fill.type === 'IMAGE');
   }
 
-  extractProps(node) {
-    const props = {}
-    
-    // Extrair propriedades com base no tipo de nó
-    if (node.name.includes('--')) {
-      const blockClass = node.name.split('--')[1]
-      props.blockClass = blockClass
-    }
-    
-    // Adicionar propriedades de layout
-    if (node.layoutMode === 'HORIZONTAL') {
-      props.horizontalAlign = 'center'
-    } else if (node.layoutMode === 'VERTICAL') {
-      props.verticalAlign = 'middle'
-    }
-    
-    // Adicionar propriedades específicas para tipos
-    if (node.type === 'TEXT' && node.characters) {
-      props.text = node.characters
-    }
-    
-    // Adicionar propriedades de estilo
-    if (node.style) {
-      if (node.style.fontFamily) {
-        props.font = node.style.fontFamily
-      }
-      if (node.style.fontSize) {
-        props.fontSize = node.style.fontSize
-      }
-    }
-    
-    return Object.keys(props).length > 0 ? props : undefined
-  }
+  // Remove this duplicate method
+  // extractProps(node) {
+  //   const props = {}
+  //   
+  //   // Extrair propriedades com base no tipo de nó
+  //   if (node.name.includes('--')) {
+  //     const blockClass = node.name.split('--')[1]
+  //     props.blockClass = blockClass
+  //   }
+  //   
+  //   // Adicionar propriedades de layout
+  //   if (node.layoutMode === 'HORIZONTAL') {
+  //     props.horizontalAlign = 'center'
+  //   } else if (node.layoutMode === 'VERTICAL') {
+  //     props.verticalAlign = 'middle'
+  //   }
+  //   
+  //   // Adicionar propriedades específicas para tipos
+  //   if (node.type === 'TEXT' && node.characters) {
+  //     props.text = node.characters
+  //   }
+  //   
+  //   // Adicionar propriedades de estilo
+  //   if (node.style) {
+  //     if (node.style.fontFamily) {
+  //       props.font = node.style.fontFamily
+  //     }
+  //     if (node.style.fontSize) {
+  //       props.fontSize = node.style.fontSize
+  //     }
+  //   }
+  //   
+  //   return Object.keys(props).length > 0 ? props : undefined
+  // }
 
   sanitizeId(name) {
     // Converter o nome para um ID válido
