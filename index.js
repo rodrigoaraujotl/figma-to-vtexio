@@ -14,15 +14,24 @@ app.post('/api/convert', async (req, res) => {
   try {
     const { fileKey, accessToken, pageName, layerId } = req.body
     
+    if (!fileKey || !accessToken || !pageName || !layerId) {
+      return res.status(400).json({ error: 'Missing required parameters' })
+    }
+    
     const figma = new FigmaAPI(accessToken)
     const figmaFile = await figma.getFile(fileKey)
+    
+    if (!figmaFile) {
+      return res.status(404).json({ error: 'Figma file not found' })
+    }
     
     const converter = new VTEXConverter()
     const vtexComponents = await converter.convert(figmaFile, pageName, layerId)
     
     res.json(vtexComponents)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Conversion error:', error)
+    res.status(500).json({ error: error.message || 'An unknown error occurred' })
   }
 })
 
@@ -35,36 +44,16 @@ app.post('/api/styles', async (req, res) => {
     const figmaFile = await figma.getFile(fileKey)
     
     const converter = new VTEXConverter()
-    const vtexComponents = await converter.convert(figmaFile, pageName, layerId)
+    const result = await converter.convert(figmaFile, pageName, layerId)
     
-    // Extrair estilos do objeto de componentes
-    let cssContent = '';
-    
-    // Extrair estilos dos arquivos CSS
-    if (vtexComponents?.styles) {
-      Object.values(vtexComponents.styles).forEach(styleObj => {
-        if (styleObj['styles.css']) {
-          cssContent += styleObj['styles.css'] + '\n';
-        }
-      });
-    }
-    
-    // Extrair estilos inline dos componentes
-    if (vtexComponents?.components) {
-      const inlineStyles = extractInlineStyles(vtexComponents.components);
-      if (inlineStyles) {
-        cssContent += '\n/* Extracted inline styles */\n' + inlineStyles;
-      }
-    }
-    
-    // Retornar como texto puro CSS, não como JSON
-    res.set('Content-Type', 'text/css');
-    res.send(cssContent || '/* No styles found */');
+    // Return CSS directly with the proper content type
+    res.set('Content-Type', 'text/css')
+    res.send(result.cssStyles || '/* No styles found */')
   } catch (error) {
-    console.error('Style extraction error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Style extraction error:', error)
+    res.status(500).json({ error: error.message })
   }
-});
+})
 
 // Função auxiliar para extrair estilos inline dos componentes
 function extractInlineStyles(components, prefix = '') {

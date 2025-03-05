@@ -75,25 +75,31 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPagesBtn.disabled = true
 
       // Fazer requisição para obter páginas
-      const response = await fetch(`/api/pages?fileKey=${fileKey}&accessToken=${accessToken}`)
+      const response = await fetch(`/api/pages?fileKey=${encodeURIComponent(fileKey)}&accessToken=${encodeURIComponent(accessToken)}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed with status: ${response.status}`)
+      }
+      
       const data = await response.json()
 
-      if (response.ok) {
-        // Preencher select de páginas
-        pageIdToNameMap = {}
-        data.forEach(page => {
-          const option = document.createElement('option')
-          option.value = page.id
-          option.textContent = page.name
-          pageSelect.appendChild(option)
-          pageIdToNameMap[page.id] = page.name
-        })
+      // Preencher select de páginas
+      pageIdToNameMap = {}
+      data.forEach(page => {
+        const option = document.createElement('option')
+        option.value = page.id
+        option.textContent = page.name
+        pageSelect.appendChild(option)
+        pageIdToNameMap[page.id] = page.name
+      })
 
-        pageSelect.disabled = false
-        checkRequiredFields()
-      } else {
-        throw new Error(data.error || 'Failed to load pages')
-      }
+      pageSelect.disabled = false
+      checkRequiredFields()
     } catch (error) {
       alert(`Error: ${error.message}`)
       console.error(error)
@@ -124,22 +130,28 @@ document.addEventListener('DOMContentLoaded', () => {
       pageSelect.disabled = true
 
       // Fazer requisição para obter camadas
-      const response = await fetch(`/api/layers?fileKey=${fileKey}&accessToken=${accessToken}&pageId=${pageId}`)
+      const response = await fetch(`/api/layers?fileKey=${encodeURIComponent(fileKey)}&accessToken=${encodeURIComponent(accessToken)}&pageId=${encodeURIComponent(pageId)}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed with status: ${response.status}`)
+      }
+      
       const data = await response.json()
 
-      if (response.ok) {
-        // Preencher select de camadas
-        data.forEach(layer => {
-          const option = document.createElement('option')
-          option.value = layer.id
-          option.textContent = `${layer.name} (${layer.type})`
-          layerSelect.appendChild(option)
-        })
-        layerSelect.disabled = false
-        pageSelect.disabled = false
-      } else {
-        throw new Error(data.error || 'Failed to load layers')
-      }
+      // Preencher select de camadas
+      data.forEach(layer => {
+        const option = document.createElement('option')
+        option.value = layer.id
+        option.textContent = `${layer.name} (${layer.type})`
+        layerSelect.appendChild(option)
+      })
+      layerSelect.disabled = false
+      pageSelect.disabled = false
     } catch (error) {
       alert(`Error: ${error.message}`)
       console.error(error)
@@ -149,138 +161,148 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Converter para VTEX IO
+  // Update the convertToVTEX function to handle the separate cssStyles property
+  // Update the convertToVTEX function to handle errors better
   async function convertToVTEX() {
-    const fileKey = fileKeyInput.value.trim()
-    const accessToken = accessTokenInput.value.trim()
-    const pageName = pageIdToNameMap[pageSelect.value]
-    const layerId = layerSelect.value
-
+    const accessToken = document.getElementById('accessToken').value;
+    const fileKey = document.getElementById('fileKey').value;
+    const pageId = document.getElementById('pageSelect').value;
+    const layerId = document.getElementById('layerSelect').value;
+    
+    // Get the page name from our map
+    const pageName = pageIdToNameMap[pageId];
+    
+    if (!accessToken || !fileKey || !pageName || !layerId) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
     try {
-      convertBtn.disabled = true
-      convertBtn.textContent = 'Converting...'
-      
       const response = await fetch('/api/convert', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          fileKey,
-          accessToken,
-          pageName,
-          layerId
+        body: JSON.stringify({ 
+          accessToken, 
+          fileKey, 
+          pageName,  // Using page name instead of ID
+          layerId 
         })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        componentsOutput.textContent = JSON.stringify(data, null, 2)
-      } else {
-        throw new Error(data.error || 'Conversion failed')
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
+      
+      const result = await response.json();
+      
+      // Display components in the components output area
+      const componentsOutput = document.getElementById('componentsOutput');
+      componentsOutput.textContent = JSON.stringify(result.components, null, 2);
+      
+      // Display CSS styles in the styles output area if available
+      const stylesOutput = document.getElementById('stylesOutput');
+      if (result.cssStyles) {
+        stylesOutput.textContent = result.cssStyles;
+      } else {
+        stylesOutput.textContent = '/* No styles generated */';
+      }
+      
+      // Enable copy buttons
+      document.getElementById('copyComponentsBtn').disabled = false;
+      document.getElementById('copyStylesBtn').disabled = false;
     } catch (error) {
-      alert(`Error: ${error.message}`)
-      console.error(error)
-      componentsOutput.textContent = 'Error during conversion.'
-    } finally {
-      convertBtn.disabled = false
-      convertBtn.textContent = 'Convert'
+      console.error('Conversion error:', error);
+      alert(`Error converting to VTEX IO: ${error.message}`);
+      
+      // Clear outputs and disable copy buttons
+      document.getElementById('componentsOutput').textContent = 'Error: ' + error.message;
+      document.getElementById('stylesOutput').textContent = '/* Error occurred during conversion */';
+      document.getElementById('copyComponentsBtn').disabled = true;
+      document.getElementById('copyStylesBtn').disabled = true;
     }
   }
 
-  // Obter estilos CSS
+  // Update the getStyles function to handle CSS text directly
   async function getStyles() {
-    const fileKey = fileKeyInput.value.trim()
-    const accessToken = accessTokenInput.value.trim()
-    const pageName = pageIdToNameMap[pageSelect.value]
-    const layerId = layerSelect.value
-  
+    const accessToken = document.getElementById('accessToken').value;
+    const fileKey = document.getElementById('fileKey').value;
+    const pageName = document.getElementById('pageSelect').value;
+    const layerId = document.getElementById('layerSelect').value;
+    
+    if (!accessToken || !fileKey || !pageName || !layerId) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
     try {
-      getStylesBtn.disabled = true
-      getStylesBtn.textContent = 'Getting Styles...'
-      
       const response = await fetch('/api/styles', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          fileKey,
-          accessToken,
-          pageName,
-          layerId
-        })
-      })
-  
-      if (response.ok) {
-        // Obter o texto CSS diretamente, não como JSON
-        const cssText = await response.text()
-        stylesOutput.textContent = cssText
-      } else {
-        // Se houver erro, tentar obter como JSON para extrair a mensagem de erro
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to get styles')
+        body: JSON.stringify({ accessToken, fileKey, pageName, layerId })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
+      
+      // Get the CSS text directly from the response
+      const cssText = await response.text();
+      
+      // Display CSS in the styles output area
+      const stylesOutput = document.getElementById('stylesOutput');
+      stylesOutput.textContent = cssText || '/* No styles generated */';
+      
+      // Enable copy button
+      document.getElementById('copyStylesBtn').disabled = false;
     } catch (error) {
-      alert(`Error: ${error.message}`)
-      console.error(error)
-      stylesOutput.textContent = 'Error getting styles.'
-    } finally {
-      getStylesBtn.disabled = false
-      getStylesBtn.textContent = 'Get Styles'
+      console.error('Style extraction error:', error);
+      alert(`Error getting styles: ${error.message}`);
     }
   }
 
-  // Adicionar botão para obter CSS do Figma
-  const getFigmaCSSBtn = document.getElementById('getFigmaCSSBtn')
-  getFigmaCSSBtn.addEventListener('click', getFigmaCSS)
-
-  // Função para obter CSS diretamente do Figma
-  async function getFigmaCSS() {
-    const fileKey = fileKeyInput.value.trim()
-    const accessToken = accessTokenInput.value.trim()
-    const layerId = layerSelect.value
-  
-    if (!fileKey || !accessToken || !layerId) {
-      alert('Please select a file, provide an access token, and select a layer')
-      return
+  // Add event listener for the Get Figma CSS button
+  document.getElementById('getFigmaCSSBtn').addEventListener('click', async () => {
+    const accessToken = document.getElementById('accessToken').value;
+    const fileKey = document.getElementById('fileKey').value;
+    const layerId = document.getElementById('layerSelect').value;
+    
+    if (!accessToken || !fileKey || !layerId) {
+      alert('Please fill in all required fields');
+      return;
     }
-  
+    
     try {
-      getFigmaCSSBtn.disabled = true
-      getFigmaCSSBtn.textContent = 'Getting Figma CSS...'
-      
       const response = await fetch('/api/figma-css', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          fileKey,
-          accessToken,
-          nodeId: layerId
-        })
-      })
-  
-      if (response.ok) {
-        // Obter o texto CSS diretamente
-        const cssText = await response.text()
-        stylesOutput.textContent = cssText
-      } else {
-        // Se houver erro, tentar obter como JSON para extrair a mensagem de erro
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to get Figma CSS')
+        body: JSON.stringify({ accessToken, fileKey, nodeId: layerId })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
+      
+      // Get the CSS text directly from the response
+      const cssText = await response.text();
+      
+      // Display CSS in the styles output area
+      const stylesOutput = document.getElementById('stylesOutput');
+      stylesOutput.textContent = cssText || '/* No CSS found */';
+      
+      // Enable copy button
+      document.getElementById('copyStylesBtn').disabled = false;
     } catch (error) {
-      alert(`Error: ${error.message}`)
-      console.error(error)
-      stylesOutput.textContent = 'Error getting Figma CSS.'
-    } finally {
-      getFigmaCSSBtn.disabled = false
-      getFigmaCSSBtn.textContent = 'Get Figma CSS'
+      console.error('Figma CSS error:', error);
+      alert(`Error getting Figma CSS: ${error.message}`);
     }
-  }
+  });
 
   // Função auxiliar para copiar para a área de transferência
   async function copyToClipboard(text) {

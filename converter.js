@@ -7,18 +7,18 @@ const { VTEXBlockMapper } = require('./services/vtexBlockMapper')
 
 class VTEXConverter {
   constructor() {
-    // Initialize the block mapper
+    // Make sure VTEXBlockMapper is properly imported and initialized
     this.blockMapper = new VTEXBlockMapper();
   }
 
   async convert(figmaFile, pageName, layerId) {
-    // Encontrar a página e a camada selecionada
+    // Find the page and selected layer
     const page = figmaFile.document.children.find(p => p.name === pageName)
     if (!page) {
       throw new Error(`Page "${pageName}" not found`)
     }
 
-    // Função para encontrar o nó com o ID especificado
+    // Function to find node by ID
     const findNodeById = (node, id) => {
       if (node.id === id) return node
       if (!node.children) return null
@@ -36,14 +36,14 @@ class VTEXConverter {
       throw new Error(`Layer with ID "${layerId}" not found in page "${pageName}"`)
     }
 
-    // Converter a camada para componentes VTEX IO
+    // Convert layer to VTEX IO components
     const components = this.convertLayerToVTEX(layer)
     const styles = this.generateStyles(layer)
 
-    // Formatar no padrão VTEX IO
+    // Format in VTEX IO standard
     return {
       components,
-      styles
+      cssStyles: styles // Changed from 'styles' object to 'cssStyles' string
     }
   }
 
@@ -208,23 +208,17 @@ class VTEXConverter {
   }
 
   generateStyles(layer) {
-    // Gerar estilos CSS com base nas propriedades visuais
-    const styles = {
-      'vtex.store-components': {
-        'styles.css': this.generateCSSFromLayer(layer)
-      }
-    }
-    
-    return styles
+    // Generate CSS directly instead of a JSON structure
+    return this.generateCSSFromLayer(layer);
   }
 
   generateCSSFromLayer(layer, selector = '') {
     let css = ''
     
-    // Gerar seletor CSS com base no nome da camada
+    // Generate CSS selector based on layer name
     const currentSelector = selector || `.${this.sanitizeId(layer.name)}`
     
-    // Extrair propriedades de estilo
+    // Extract style properties
     const styleProps = this.extractStyleProps(layer)
     
     if (Object.keys(styleProps).length > 0) {
@@ -235,7 +229,7 @@ class VTEXConverter {
       css += '}\n\n'
     }
     
-    // Processar estilos de camadas filhas
+    // Process styles for child layers
     if (layer.children) {
       for (const child of layer.children) {
         const childSelector = `${currentSelector} .${this.sanitizeId(child.name)}`
