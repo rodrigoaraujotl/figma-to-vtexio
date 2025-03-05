@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guia para Designers Figma - VTEX IO Converter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+  <style>
+    body {
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .sidebar {
+      position: sticky;
+      top: 2rem;
+      height: calc(100vh - 4rem);
+      overflow-y: auto;
+    }
+    pre {
+      background-color: #f8f9fa;
+      border-radius: 0.25rem;
+      padding: 1rem;
+    }
+    .nav-link {
+      padding: 0.25rem 0;
+    }
+    h2, h3 {
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-3 sidebar">
+        <h5>Conteúdo</h5>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#principios">Princípios Básicos</a>
+          <a class="nav-link" href="#nomenclatura">Nomenclatura por Tipo</a>
+          <a class="nav-link" href="#paginas">Páginas</a>
+          <a class="nav-link" href="#layouts">Layouts</a>
+          <a class="nav-link" href="#navegacao">Navegação</a>
+          <a class="nav-link" href="#carrosseis">Carrosséis e Banners</a>
+          <a class="nav-link" href="#produtos">Produtos</a>
+          <a class="nav-link" href="#texto">Elementos de Texto</a>
+          <a class="nav-link" href="#formularios">Elementos de Formulário</a>
+          <a class="nav-link" href="#convencoes">Convenções Especiais</a>
+          <a class="nav-link" href="#exemplos">Exemplos Práticos</a>
+          <a class="nav-link" href="#dicas">Dicas para Conversão</a>
+        </nav>
+        <hr>
+        <a href="/" class="btn btn-outline-primary btn-sm">Voltar para o Conversor</a>
+      </div>
+      <div class="col-md-9">
+        <h1>Guia de Nomenclatura para Designers Figma</h1>
+        <p class="lead">Este guia explica como nomear corretamente as camadas no Figma para que sejam convertidas adequadamente para componentes VTEX IO usando nossa ferramenta de conversão.</p>
+        
+        <div id="content">
+          <!-- O conteúdo do markdown será carregado aqui -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script>
+    // Carregar e renderizar o markdown
+    fetch('/designer-guide.md')
+      .then(response => response.text())
+      .then(markdown => {
+        document.getElementById('content').innerHTML = marked.parse(markdown);
+        // Aplicar highlight de sintaxe
+        Prism.highlightAll();
+      });
+  </script>
+</body>
+</html>

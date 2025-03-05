@@ -2,6 +2,7 @@ const { HeaderConverter } = require('./components/Header')
 const { FooterConverter } = require('./components/Footer')
 const { TemplateManager } = require('./templates/templateManager')
 const { VTEXComponentMapper } = require('./services/vtexComponentMapper')
+const { VTEXBlockMapper } = require('./services/vtexBlockMapper')
 
 
 class VTEXConverter {
@@ -58,9 +59,65 @@ class VTEXConverter {
     // Adicionar definições de blocos
     childBlocks.forEach(block => {
       components[block.id] = block.definition
+      
+      // Se for um slider, adicionar também o list-context necessário
+      if (block.id.startsWith('slider-layout') && !components['list-context.image-list']) {
+        const listContextId = `list-context.image-list#${this.sanitizeId(layer.name)}-images`
+        
+        // Adicionar o list-context antes do slider na lista de blocos
+        const sliderIndex = components[storePage].blocks.indexOf(block.id)
+        if (sliderIndex !== -1) {
+          components[storePage].blocks[sliderIndex] = listContextId
+          
+          // Adicionar o slider como filho do list-context
+          components[listContextId] = {
+            children: [block.id],
+            props: {
+              images: this.extractImagesFromLayer(layer)
+            }
+          }
+        }
+      }
     })
     
     return components
+  }
+
+  // Nova função para extrair imagens de uma camada
+  extractImagesFromLayer(layer) {
+    const images = []
+    
+    // Função recursiva para encontrar nós de imagem
+    const findImages = (node) => {
+      if (!node) return
+      
+      // Verificar se o nó atual é uma imagem
+      if (this.isImage(node)) {
+        images.push({
+          image: `assets/${this.sanitizeId(node.name)}.png`,
+          mobileImage: `assets/${this.sanitizeId(node.name)}.png`,
+          description: node.name
+        })
+      }
+      
+      // Verificar filhos recursivamente
+      if (node.children) {
+        node.children.forEach(child => findImages(child))
+      }
+    }
+    
+    findImages(layer)
+    
+    // Se não encontrou imagens, adicionar pelo menos uma imagem padrão
+    if (images.length === 0) {
+      images.push({
+        image: "assets/banner-principal-home.png",
+        mobileImage: "assets/banner-principal-home.png",
+        description: "Banner principal"
+      })
+    }
+    
+    return images
   }
 
   createChildBlocks(layer) {
@@ -90,35 +147,11 @@ class VTEXConverter {
   }
 
   getBlockType(node) {
-    // Mapear tipos de nós Figma para tipos de blocos VTEX
-    switch (node.type) {
-      case 'FRAME':
-        return 'flex-layout.row'
-      case 'GROUP':
-        return 'flex-layout.col'
-      case 'TEXT':
-        return 'rich-text'
-      case 'RECTANGLE':
-        if (this.isImage(node)) {
-          return 'image'
-        }
-        return 'box'
-      case 'COMPONENT':
-      case 'INSTANCE':
-        // Tentar determinar o tipo com base no nome
-        if (node.name.toLowerCase().includes('banner')) {
-          return 'list-context.image-list'
-        }
-        if (node.name.toLowerCase().includes('slider')) {
-          return 'slider-layout'
-        }
-        if (node.name.toLowerCase().includes('shelf')) {
-          return 'list-context.product-list'
-        }
-        return 'flex-layout.row'
-      default:
-        return 'flex-layout.row'
-    }
+    return this.blockMapper.getBlockType(node)
+  }
+
+  extractProps(node) {
+    return this.blockMapper.getBlockProps(node)
   }
 
   isImage(node) {

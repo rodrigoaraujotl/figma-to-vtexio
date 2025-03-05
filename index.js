@@ -180,6 +180,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
 
+// Rota para a documentação de designers
+app.get('/designer-guide', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'designer-guide.html'))
+})
+
 // Adicione estas linhas no início do seu arquivo index.js, logo após as importações
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
