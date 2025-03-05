@@ -1,0 +1,27 @@
+.output-area {
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.card {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+  background-color: #f8f9fa;
+}
+
+.form-text {
+  font-size: 0.75rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}

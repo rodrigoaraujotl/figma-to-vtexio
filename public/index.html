@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Figma to VTEX IO Converter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container mt-4">
+    <h1 class="mb-4">Figma to VTEX IO Converter</h1>
+    
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5>Configuration</h5>
+      </div>
+      <div class="card-body">
+        <form id="configForm">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="accessToken" class="form-label">Figma Access Token</label>
+              <input type="password" class="form-control" id="accessToken" required>
+            </div>
+            <div class="col-md-6">
+              <label for="fileKey" class="form-label">Figma File Key</label>
+              <input type="text" class="form-control" id="fileKey" required>
+              <div class="form-text">The key in the Figma file URL: figma.com/file/<strong>KEY</strong>/title</div>
+            </div>
+          </div>
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="pageSelect" class="form-label">Page</label>
+              <select class="form-select" id="pageSelect" disabled>
+                <option value="">Select a page</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="layerSelect" class="form-label">Layer</label>
+              <select class="form-select" id="layerSelect" disabled>
+                <option value="">Select a layer</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="d-flex justify-content-between">
+            <button type="button" id="loadPagesBtn" class="btn btn-secondary">Load Pages</button>
+            <div>
+              <button type="button" id="convertBtn" class="btn btn-primary" disabled>Convert</button>
+              <button type="button" id="getStylesBtn" class="btn btn-success" disabled>Get Styles</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>VTEX Components</h5>
+            <button id="copyComponentsBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+          </div>
+          <div class="card-body">
+            <pre id="componentsOutput" class="output-area">No components generated yet.</pre>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <div class="card mb-4">
+          <!-- Dentro do card-header dos estilos -->
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>CSS Styles</h5>
+            <div>
+              <button id="getFigmaCSSBtn" class="btn btn-sm btn-outline-primary me-2">Get Figma CSS</button>
+              <button id="getStylesBtn" class="btn btn-sm btn-outline-success me-2">Get Generated CSS</button>
+              <button id="copyStylesBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <pre id="stylesOutput" class="output-area">No styles generated yet.</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>
