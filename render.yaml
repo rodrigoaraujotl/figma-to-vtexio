@@ -2,10 +2,10 @@ services:
   - type: web
     name: figma-to-vtexio
     env: node
-    buildCommand: npm install
+    buildCommand: npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
     plan: free
-    # Remover qualquer referência a um diretório de publicação
+    buildDir: build

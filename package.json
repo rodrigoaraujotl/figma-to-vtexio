@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "echo 'Build completed'",
+    "build": "mkdir -p build && cp -r index.js figma.js converter.js public package.json build/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
