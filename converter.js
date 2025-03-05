@@ -48,18 +48,24 @@ class VTEXConverter {
   }
 
   convertLayerToVTEX(layer) {
-    // Determinar o tipo de bloco principal com base no tipo de camada
-    const storePage = layer.name.toLowerCase().includes('home') ? 'store.home' : 'store.custom'
+    // Determinar o tipo de bloco principal com base no nome da camada
+    const pageType = this.determinePageType(layer.name.toLowerCase())
     
     // Criar blocos filhos com base nas subcamadas
-    const childBlocks = this.createChildBlocks(layer)
+    let childBlocks = this.createChildBlocks(layer)
+    
+    // Reorganizar blocos para garantir que o header esteja primeiro
+    childBlocks = this.organizeBlocks(childBlocks)
     
     // Criar o objeto de componentes no formato VTEX IO
     const components = {
-      [storePage]: {
+      [pageType]: {
         blocks: childBlocks.map(block => block.id)
       }
     }
+    
+    // Adicionar blocos específicos para cada tipo de página
+    this.addPageSpecificBlocks(components, pageType)
     
     // Adicionar definições de blocos
     childBlocks.forEach(block => {
@@ -70,9 +76,9 @@ class VTEXConverter {
         const listContextId = `list-context.image-list#${this.sanitizeId(layer.name)}-images`
         
         // Adicionar o list-context antes do slider na lista de blocos
-        const sliderIndex = components[storePage].blocks.indexOf(block.id)
+        const sliderIndex = components[pageType].blocks.indexOf(block.id)
         if (sliderIndex !== -1) {
-          components[storePage].blocks[sliderIndex] = listContextId
+          components[pageType].blocks[sliderIndex] = listContextId
           
           // Adicionar o slider como filho do list-context
           components[listContextId] = {
@@ -85,7 +91,316 @@ class VTEXConverter {
       }
     })
     
+    // Garantir que flex-layout.col esteja sempre dentro de flex-layout.row
+    this.ensureProperFlexLayout(components)
+    
     return components
+  }
+
+  // Nova função para determinar o tipo de página com base no nome da camada
+  determinePageType(layerName) {
+    if (layerName.includes('pdp') || layerName.includes('produto')) {
+      return 'store.product'
+    } else if (layerName.includes('plp') || layerName.includes('categoria')) {
+      return 'store.category'
+    } else if (layerName.includes('search') || layerName.includes('busca')) {
+      if (layerName.includes('empty') || layerName.includes('vazia')) {
+        return 'store.search#empty'
+      }
+      return 'store.search'
+    } else if (layerName.includes('collection') || layerName.includes('colecao')) {
+      return 'store.collection'
+    } else if (layerName.includes('home')) {
+      return 'store.home'
+    } else {
+      return 'store.custom'
+    }
+  }
+
+  // Nova função para adicionar blocos específicos para cada tipo de página
+  addPageSpecificBlocks(components, pageType) {
+    const pageBlocks = components[pageType].blocks
+    
+    switch (pageType) {
+      case 'store.product':
+        // Verificar se já existe um bloco de breadcrumb
+        if (!pageBlocks.some(block => block.includes('breadcrumb'))) {
+          pageBlocks.unshift('breadcrumb')
+          components['breadcrumb'] = {
+            props: {
+              showOnMobile: true
+            }
+          }
+        }
+        
+        // Verificar se já existe um bloco de produto
+        if (!pageBlocks.some(block => block.includes('product-'))) {
+          // Adicionar blocos essenciais para página de produto
+          const productDetailsId = 'flex-layout.row#product-main'
+          pageBlocks.push(productDetailsId)
+          
+          components[productDetailsId] = {
+            children: [
+              'flex-layout.col#product-images',
+              'flex-layout.col#product-details'
+            ]
+          }
+          
+          components['flex-layout.col#product-images'] = {
+            children: ['product-images'],
+            props: {
+              width: '60%',
+              verticalAlign: 'middle'
+            }
+          }
+          
+          components['product-images'] = {
+            props: {
+              displayThumbnailsArrows: true
+            }
+          }
+          
+          components['flex-layout.col#product-details'] = {
+            children: [
+              'product-name',
+              'product-price',
+              'product-description',
+              'buy-button'
+            ],
+            props: {
+              width: '40%',
+              verticalAlign: 'middle'
+            }
+          }
+        }
+        break
+        
+      case 'store.category':
+      case 'store.search':
+        // Verificar se já existe um bloco de busca/categoria
+        if (!pageBlocks.some(block => block.includes('search-result'))) {
+          // Adicionar blocos essenciais para página de categoria/busca
+          pageBlocks.push('search-result-layout')
+          
+          components['search-result-layout'] = {
+            children: ['search-result-layout.desktop', 'search-result-layout.mobile']
+          }
+          
+          components['search-result-layout.desktop'] = {
+            children: ['search-result-layout.desktop#custom'],
+            props: {
+              preventRouteChange: true
+            }
+          }
+          
+          components['search-result-layout.desktop#custom'] = {
+            children: [
+              'flex-layout.row#searchbread',
+              'flex-layout.row#searchtitle',
+              'flex-layout.row#result'
+            ]
+          }
+          
+          components['flex-layout.row#searchbread'] = {
+            children: ['breadcrumb.search']
+          }
+          
+          components['flex-layout.row#searchtitle'] = {
+            children: ['search-title.v2']
+          }
+          
+          components['flex-layout.row#result'] = {
+            children: [
+              'flex-layout.col#filter',
+              'flex-layout.col#search'
+            ]
+          }
+          
+          components['flex-layout.col#filter'] = {
+            children: ['filter-navigator.v3'],
+            props: {
+              width: '20%'
+            }
+          }
+          
+          components['flex-layout.col#search'] = {
+            children: ['search-content'],
+            props: {
+              width: '80%'
+            }
+          }
+        }
+        break
+        
+      case 'store.search#empty':
+        // Verificar se já existe um bloco de busca vazia
+        if (!pageBlocks.some(block => block.includes('search-result'))) {
+          // Adicionar blocos essenciais para página de busca vazia
+          pageBlocks.push('flex-layout.row#empty-search')
+          
+          components['flex-layout.row#empty-search'] = {
+            children: ['flex-layout.col#empty-search']
+          }
+          
+          components['flex-layout.col#empty-search'] = {
+            children: [
+              'rich-text#empty-search',
+              'search-suggestions'
+            ],
+            props: {
+              horizontalAlign: 'center',
+              verticalAlign: 'middle',
+              rowGap: 5
+            }
+          }
+          
+          components['rich-text#empty-search'] = {
+            props: {
+              text: "Não encontramos nenhum resultado para sua busca",
+              textAlignment: "CENTER",
+              textPosition: "CENTER",
+              font: "t-heading-3"
+            }
+          }
+        }
+        break
+        
+      case 'store.collection':
+        // Verificar se já existe um bloco de coleção
+        if (!pageBlocks.some(block => block.includes('search-result'))) {
+          // Adicionar blocos essenciais para página de coleção
+          pageBlocks.push('search-result-layout.customQuery')
+          
+          components['search-result-layout.customQuery'] = {
+            props: {
+              querySchema: {
+                orderByField: "OrderByReleaseDateDESC",
+                hideUnavailableItems: true,
+                maxItemsPerPage: 12,
+                queryField: "Collection",
+                mapField: "productClusterIds",
+                skusFilter: "ALL_AVAILABLE"
+              }
+            },
+            children: ['search-result-layout.desktop', 'search-result-layout.mobile']
+          }
+          
+          // Reutilizar os mesmos componentes de busca/categoria
+          if (!components['search-result-layout.desktop']) {
+            components['search-result-layout.desktop'] = {
+              children: ['search-result-layout.desktop#custom'],
+              props: {
+                preventRouteChange: true
+              }
+            }
+            
+            components['search-result-layout.desktop#custom'] = {
+              children: [
+                'flex-layout.row#searchtitle',
+                'flex-layout.row#result'
+              ]
+            }
+            
+            components['flex-layout.row#searchtitle'] = {
+              children: ['search-title.v2']
+            }
+            
+            components['flex-layout.row#result'] = {
+              children: ['search-content']
+            }
+          }
+        }
+        break
+    }
+  }
+
+  // Nova função para organizar blocos (header primeiro)
+  organizeBlocks(blocks) {
+    // Encontrar o bloco de header
+    const headerIndex = blocks.findIndex(block => 
+      block.id.includes('header') || 
+      (block.id.includes('flex-layout') && block.id.includes('header'))
+    )
+    
+    // Se encontrou o header, mover para o início
+    if (headerIndex > 0) {
+      const headerBlock = blocks.splice(headerIndex, 1)[0]
+      blocks.unshift(headerBlock)
+    }
+    
+    // Encontrar o bloco de footer
+    const footerIndex = blocks.findIndex(block => 
+      block.id.includes('footer') || 
+      (block.id.includes('flex-layout') && block.id.includes('footer'))
+    )
+    
+    // Se encontrou o footer, mover para o final
+    if (footerIndex > -1 && footerIndex < blocks.length - 1) {
+      const footerBlock = blocks.splice(footerIndex, 1)[0]
+      blocks.push(footerBlock)
+    }
+    
+    return blocks
+  }
+
+  // Nova função para garantir que flex-layout.col esteja dentro de flex-layout.row
+  ensureProperFlexLayout(components) {
+    // Encontrar todos os flex-layout.col que estão no nível principal
+    const mainBlocks = components['store.home']?.blocks || components['store.custom']?.blocks || []
+    
+    const colBlocks = mainBlocks.filter(blockId => 
+      blockId.startsWith('flex-layout.col#')
+    )
+    
+    if (colBlocks.length > 0) {
+      // Criar um novo flex-layout.row para conter esses col
+      const rowId = `flex-layout.row#auto-generated-${Date.now()}`
+      
+      // Substituir os col pelo row no array principal
+      const firstColIndex = mainBlocks.indexOf(colBlocks[0])
+      mainBlocks.splice(firstColIndex, colBlocks.length, rowId)
+      
+      // Adicionar o row com os col como filhos
+      components[rowId] = {
+        children: colBlocks,
+        props: {
+          blockClass: 'auto-generated-row',
+          preventHorizontalStretch: true
+        }
+      }
+    }
+    
+    // Verificar recursivamente em todos os componentes
+    Object.keys(components).forEach(key => {
+      if (components[key] && components[key].children) {
+        const children = components[key].children
+        
+        // Verificar se há flex-layout.col sem um flex-layout.row pai
+        if (!key.startsWith('flex-layout.row#')) {
+          const nestedColBlocks = children.filter(blockId => 
+            blockId.startsWith('flex-layout.col#')
+          )
+          
+          if (nestedColBlocks.length > 0) {
+            // Criar um novo flex-layout.row para conter esses col
+            const rowId = `flex-layout.row#nested-${this.sanitizeId(key)}-${Date.now()}`
+            
+            // Substituir os col pelo row no array de filhos
+            const firstColIndex = children.indexOf(nestedColBlocks[0])
+            children.splice(firstColIndex, nestedColBlocks.length, rowId)
+            
+            // Adicionar o row com os col como filhos
+            components[rowId] = {
+              children: nestedColBlocks,
+              props: {
+                blockClass: 'nested-auto-row',
+                preventHorizontalStretch: true
+              }
+            }
+          }
+        }
+      }
+    })
   }
 
   // Nova função para extrair imagens de uma camada
