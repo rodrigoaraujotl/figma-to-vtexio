@@ -8,3 +8,4 @@ services:
       - key: NODE_ENV
         value: production
     plan: free
+    # Remover qualquer referência a um diretório de publicação

@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build": "echo 'Build completed'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
-    "node": "16.x"
+    "node": "18.x"
   },
   "author": "",
   "license": "ISC",

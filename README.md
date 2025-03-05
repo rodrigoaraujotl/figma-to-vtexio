@@ -26,3 +26,14 @@ A tool to convert Figma designs into VTEX IO components and styles.
 ## Deployment
 
 This project is configured for easy deployment on Render.
+
+### Deploy to Render
+
+1. Fork or clone this repository to your GitHub account
+2. Create a new Web Service on Render
+3. Connect your GitHub repository
+4. Use the following settings:
+- Build Command: `npm install`
+- Start Command: `npm start`
+- Node.js version: 18.x
+5. Click "Create Web Service"
