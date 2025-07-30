@@ -12,26 +12,22 @@ const PORT = process.env.PORT || 3000
 // Endpoint para converter Figma para VTEX IO
 app.post('/api/convert', async (req, res) => {
   try {
-    const { fileKey, accessToken, pageName, layerId } = req.body
+    const { accessToken, fileKey, pageName, layerId, selectedBlocks = [] } = req.body
     
-    if (!fileKey || !accessToken || !pageName || !layerId) {
-      return res.status(400).json({ error: 'Missing required parameters' })
-    }
+    // Inicializar a API do Figma com o token de acesso
+    const figmaAPI = new FigmaAPI(accessToken)
     
-    const figma = new FigmaAPI(accessToken)
-    const figmaFile = await figma.getFile(fileKey)
+    // Obter o arquivo do Figma
+    const figmaFile = await figmaAPI.getFile(fileKey)
     
-    if (!figmaFile) {
-      return res.status(404).json({ error: 'Figma file not found' })
-    }
-    
+    // Converter para VTEX IO
     const converter = new VTEXConverter()
-    const vtexComponents = await converter.convert(figmaFile, pageName, layerId)
+    const result = await converter.convert(figmaFile, pageName, layerId, selectedBlocks)
     
-    res.json(vtexComponents)
+    res.json(result)
   } catch (error) {
-    console.error('Conversion error:', error)
-    res.status(500).json({ error: error.message || 'An unknown error occurred' })
+    console.error('Error converting to VTEX IO:', error)
+    res.status(500).json({ error: `Error converting to VTEX IO: ${error.message}` })
   }
 })
 
@@ -163,6 +159,78 @@ app.post('/api/figma-css', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
+// Rota principal para a interface web
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+})
+
+// Rota para a documentação de designers
+app.get('/designer-guide', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'designer-guide.html'))
+})
+
+// Adicione estas linhas no início do seu arquivo index.js, logo após as importações
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Figma-Token');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+app.post('/api/get-child-blocks', async (req, res) => {
+  try {
+    const { accessToken, fileKey, pageId, layerId } = req.body;
+    
+    // Inicializar a API do Figma com o token de acesso
+    const figmaAPI = new FigmaAPI(accessToken);
+    
+    // Obter o arquivo do Figma
+    const figmaFile = await figmaAPI.getFile(fileKey);
+    
+    // Encontrar a página
+    const page = figmaFile.document.children.find(p => p.id === pageId);
+    if (!page) {
+      throw new Error(`Page with ID "${pageId}" not found`);
+    }
+    
+    // Função para encontrar nó por ID
+    const findNodeById = (node, id) => {
+      if (node.id === id) return node;
+      if (!node.children) return null;
+      
+      for (const child of node.children) {
+        const found = findNodeById(child, id);
+        if (found) return found;
+      }
+      
+      return null;
+    };
+    
+    // Encontrar a camada
+    const layer = findNodeById(page, layerId);
+    if (!layer) {
+      throw new Error(`Layer with ID "${layerId}" not found`);
+    }
+    
+    // Extrair informações dos blocos filhos
+    const blocks = layer.children ? layer.children.map(child => ({
+      id: child.id,
+      name: child.name,
+      type: child.type
+    })) : [];
+    
+    res.json({ blocks });
+  } catch (error) {
+    console.error('Error getting child blocks:', error);
+    res.status(500).json({ error: `Error getting child blocks: ${error.message}` });
+  }
+});
 
 // Rota principal para a interface web
 app.get('/', (req, res) => {

@@ -11,7 +11,7 @@ class VTEXConverter {
     this.blockMapper = new VTEXBlockMapper();
   }
 
-  async convert(figmaFile, pageName, layerId) {
+  async convert(figmaFile, pageName, layerId, selectedBlocks = []) {
     // Find the page and selected layer
     const page = figmaFile.document.children.find(p => p.name === pageName)
     if (!page) {
@@ -36,8 +36,8 @@ class VTEXConverter {
       throw new Error(`Layer with ID "${layerId}" not found in page "${pageName}"`)
     }
 
-    // Convert layer to VTEX IO components
-    const components = this.convertLayerToVTEX(layer)
+    // Convert layer to VTEX IO components with selected blocks filter
+    const components = this.convertLayerToVTEX(layer, selectedBlocks)
     const styles = this.generateStyles(layer)
 
     // Format in VTEX IO standard
@@ -47,12 +47,23 @@ class VTEXConverter {
     }
   }
 
-  convertLayerToVTEX(layer) {
+  convertLayerToVTEX(layer, selectedBlocks = []) {
     // Determinar o tipo de bloco principal com base no nome da camada
     const pageType = this.determinePageType(layer.name.toLowerCase())
     
     // Criar blocos filhos com base nas subcamadas
     let childBlocks = this.createChildBlocks(layer)
+    
+    // Filtrar blocos selecionados pelo usuário, se houver uma seleção
+    if (selectedBlocks && selectedBlocks.length > 0) {
+      childBlocks = childBlocks.filter(block => {
+        // Verificar se o ID do bloco ou o nome do nó está na lista de selecionados
+        return selectedBlocks.some(selectedBlock => 
+          block.id.includes(selectedBlock) || 
+          this.sanitizeId(block.node.name).includes(selectedBlock)
+        )
+      })
+    }
     
     // Reorganizar blocos para garantir que o header esteja primeiro
     childBlocks = this.organizeBlocks(childBlocks)
@@ -364,7 +375,7 @@ class VTEXConverter {
       components[rowId] = {
         children: colBlocks,
         props: {
-          blockClass: 'auto-generated-row',
+          blockClass: 'auto-generated-row', // Garantir blockClass para rows gerados automaticamente
           preventHorizontalStretch: true
         }
       }
@@ -446,32 +457,84 @@ class VTEXConverter {
     }
     
     return layer.children.map(child => {
-      // Determinar o tipo de bloco com base no tipo de camada
-      const blockType = this.getBlockType(child)
+      // Usar o método determineBlockType que vamos adicionar
+      const blockType = this.determineBlockType(child)
+      
+      // Criar um ID sanitizado para o bloco
       const blockId = `${blockType}#${this.sanitizeId(child.name)}`
       
-      // Criar propriedades do bloco
-      const props = this.extractProps(child)
+      // Garantir que todos os blocos tenham uma blockClass baseada no nome do nó
+      const blockClass = this.sanitizeId(child.name)
       
-      // Criar filhos recursivamente
-      const children = this.createChildBlocks(child)
+      // Criar a definição do bloco
+      const blockDefinition = {
+        props: {
+          blockClass: blockClass, // Garantir que a blockClass esteja sempre presente
+          ...this.extractProps(child, blockType)
+        }
+      }
+      
+      // Se o nó tiver filhos, processá-los recursivamente
+      if (child.children && child.children.length > 0) {
+        // Para containers, adicionar filhos
+        if (this.isContainer(child)) {
+          blockDefinition.children = this.createChildBlocks(child).map(block => block.id)
+        }
+      }
       
       return {
         id: blockId,
-        definition: {
-          props,
-          children: children.length > 0 ? children.map(c => c.id) : undefined
-        }
+        definition: blockDefinition,
+        node: child
       }
     })
   }
 
-  getBlockType(node) {
-    return this.blockMapper.getBlockType(node);
+  // Adicionar o método isContainer que está faltando
+  isContainer(node) {
+    // Verificar se o nó é um container (Frame, Group, etc.)
+    return node.type === 'FRAME' || 
+           node.type === 'GROUP' || 
+           node.type === 'COMPONENT' || 
+           node.type === 'COMPONENT_SET' ||
+           node.type === 'INSTANCE';
   }
 
-  extractProps(node) {
-    return this.blockMapper.getBlockProps(node);
+  extractProps(node, blockType) {
+    const props = {}
+    
+    // Garantir que a blockClass esteja sempre presente
+    props.blockClass = this.sanitizeId(node.name)
+    
+    // Adicionar propriedades específicas com base no tipo de bloco
+    switch (blockType) {
+      case 'flex-layout.row':
+        props.preventHorizontalStretch = true
+        props.fullWidth = true
+        props.horizontalAlign = 'center'
+        break
+        
+      case 'flex-layout.col':
+        props.preventVerticalStretch = true
+        props.verticalAlign = 'center'
+        break
+        
+      case 'rich-text':
+        if (node.type === 'TEXT' && node.characters) {
+          props.text = node.characters
+          props.textAlignment = node.style?.textAlignHorizontal?.toLowerCase() || 'left'
+        }
+        break
+        
+      case 'image':
+      case 'store-image':
+        props.src = `assets/${this.sanitizeId(node.name)}.png`
+        props.maxWidth = '100%'
+        props.alt = node.name
+        break
+    }
+    
+    return props
   }
 
   isImage(node) {
@@ -663,6 +726,38 @@ class VTEXConverter {
     
     return css
   }
+  determineBlockType(node) {
+    // Determinar o tipo de bloco com base no tipo do nó
+    if (node.type === 'TEXT') {
+      return 'rich-text'
+    } else if (this.isImage(node)) {
+      return 'image'
+    } else if (node.name.toLowerCase().includes('header')) {
+      return 'header'
+    } else if (node.name.toLowerCase().includes('footer')) {
+      return 'footer'
+    } else if (node.name.toLowerCase().includes('slider') || 
+               node.name.toLowerCase().includes('carousel')) {
+      return 'slider-layout'
+    } else if (node.name.toLowerCase().includes('tab')) {
+      return 'tab-layout'
+    } else if (node.type === 'FRAME' || node.type === 'GROUP') {
+      // Verificar se é um container horizontal ou vertical
+      if (node.layoutMode === 'HORIZONTAL') {
+        return 'flex-layout.row'
+      } else if (node.layoutMode === 'VERTICAL') {
+        return 'flex-layout.col'
+      } else {
+        // Para frames sem layout específico
+        return 'flex-layout.row'
+      }
+    } else {
+      // Bloco padrão para outros tipos
+      return 'flex-layout.row'
+    }
+  }
 }
 
 module.exports = { VTEXConverter }
+
+// Adicionar o método determineBlockType que está faltando

@@ -24,26 +24,49 @@ class FigmaAPI {
 
   // Novo método para obter as páginas de um arquivo
   async getPages(fileKey) {
-    const file = await this.getFile(fileKey)
-    return file.document.children.map(page => ({
-      id: page.id,
-      name: page.name
-    }))
+    try {
+      const response = await this.api.get(`/files/${fileKey}`);
+      
+      if (!response.data || !response.data.document || !response.data.document.children) {
+        throw new Error('Invalid Figma file structure');
+      }
+      
+      // Extrair apenas as páginas do documento
+      return response.data.document.children.map(page => ({
+        id: page.id,
+        name: page.name
+      }));
+    } catch (error) {
+      console.error('Error fetching Figma pages:', error);
+      throw new Error(`Failed to fetch pages: ${error.message}`);
+    }
   }
 
-  // Método modificado para obter apenas as camadas principais
   async getLayers(fileKey, pageId) {
-    const file = await this.getFile(fileKey)
-    const page = file.document.children.find(p => p.id === pageId)
-    
-    if (!page) return []
-    
-    // Retornar apenas as camadas de primeiro nível
-    return page.children.map(node => ({
-      id: node.id,
-      name: node.name,
-      type: node.type
-    }))
+    try {
+      const response = await this.api.get(`/files/${fileKey}`);
+      
+      if (!response.data || !response.data.document || !response.data.document.children) {
+        throw new Error('Invalid Figma file structure');
+      }
+      
+      // Encontrar a página específica
+      const page = response.data.document.children.find(p => p.id === pageId);
+      
+      if (!page || !page.children) {
+        throw new Error(`Page with ID ${pageId} not found or has no children`);
+      }
+      
+      // Extrair camadas de primeiro nível da página
+      return page.children.map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        type: layer.type
+      }));
+    } catch (error) {
+      console.error('Error fetching Figma layers:', error);
+      throw new Error(`Failed to fetch layers: ${error.message}`);
+    }
   }
 
   // Novo método para obter CSS diretamente do Figma

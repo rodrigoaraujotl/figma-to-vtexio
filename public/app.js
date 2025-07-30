@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Event Listeners
   loadPagesBtn.addEventListener('click', loadPages)
   pageSelect.addEventListener('change', loadLayers)
+  layerSelect.addEventListener('change', function() {
+    loadChildBlocks(this.value)
+  })
   convertBtn.addEventListener('click', convertToVTEX)
   getStylesBtn.addEventListener('click', getStyles)
   copyComponentsBtn.addEventListener('click', () => copyToClipboard(componentsOutput.textContent))
@@ -114,13 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileKey = fileKeyInput.value.trim()
     const accessToken = accessTokenInput.value.trim()
     const pageId = pageSelect.value
-
+  
     if (!pageId) {
       layerSelect.innerHTML = '<option value="">Select a layer</option>'
       layerSelect.disabled = true
       return
     }
-
+  
     try {
       // Limpar select de camadas
       layerSelect.innerHTML = '<option value="">Select a layer</option>'
@@ -128,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Mostrar loading
       pageSelect.disabled = true
-
+  
       // Fazer requisição para obter camadas
       const response = await fetch(`/api/layers?fileKey=${encodeURIComponent(fileKey)}&accessToken=${encodeURIComponent(accessToken)}&pageId=${encodeURIComponent(pageId)}`, {
         headers: {
@@ -142,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const data = await response.json()
-
+  
       // Preencher select de camadas
       data.forEach(layer => {
         const option = document.createElement('option')
@@ -158,6 +161,107 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     checkRequiredFields()
+    // REMOVER ESTAS LINHAS QUE ESTÃO CAUSANDO O ERRO
+    // const layerSelect = document.getElementById('layerSelect');
+    // layerSelect.addEventListener('change', function() {
+    // loadChildBlocks(this.value);
+    // });
+  }
+
+  async function loadChildBlocks(layerId) {
+    const accessToken = document.getElementById('accessToken').value;
+    const fileKey = document.getElementById('fileKey').value;
+    const pageId = document.getElementById('pageSelect').value;
+    
+    if (!accessToken || !fileKey || !pageId || !layerId) {
+      return;
+    }
+    
+    try {
+      // Fazer uma requisição para obter os blocos filhos da camada selecionada
+      const response = await fetch('/api/get-child-blocks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ accessToken, fileKey, pageId, layerId })
+      });
+      
+      const data = await response.json();
+      
+      // Criar a interface para seleção de blocos
+      const blockSelectionContainer = document.getElementById('blockSelectionContainer') || 
+                                     createBlockSelectionContainer();
+      
+      blockSelectionContainer.innerHTML = '<h4>Select blocks to export:</h4>';
+      
+      // Adicionar checkbox para cada bloco
+      data.blocks.forEach(block => {
+        const blockDiv = document.createElement('div');
+        blockDiv.className = 'form-check';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-check-input block-checkbox';
+        checkbox.id = `block-${block.id}`;
+        checkbox.value = block.name;
+        checkbox.checked = true; // Por padrão, todos os blocos são selecionados
+        
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        label.htmlFor = `block-${block.id}`;
+        label.textContent = block.name;
+        
+        blockDiv.appendChild(checkbox);
+        blockDiv.appendChild(label);
+        blockSelectionContainer.appendChild(blockDiv);
+      });
+      
+      // Adicionar botões para selecionar/desselecionar todos
+      const buttonGroup = document.createElement('div');
+      buttonGroup.className = 'btn-group mt-2 mb-3';
+      
+      const selectAllBtn = document.createElement('button');
+      selectAllBtn.className = 'btn btn-sm btn-outline-primary';
+      selectAllBtn.textContent = 'Select All';
+      selectAllBtn.onclick = () => {
+        document.querySelectorAll('.block-checkbox').forEach(cb => cb.checked = true);
+      };
+      
+      const deselectAllBtn = document.createElement('button');
+      deselectAllBtn.className = 'btn btn-sm btn-outline-secondary';
+      deselectAllBtn.textContent = 'Deselect All';
+      deselectAllBtn.onclick = () => {
+        document.querySelectorAll('.block-checkbox').forEach(cb => cb.checked = false);
+      };
+      
+      buttonGroup.appendChild(selectAllBtn);
+      buttonGroup.appendChild(deselectAllBtn);
+      blockSelectionContainer.insertBefore(buttonGroup, blockSelectionContainer.firstChild);
+      
+    } catch (error) {
+      console.error('Error loading child blocks:', error);
+    }
+  }
+
+  function createBlockSelectionContainer() {
+    const container = document.createElement('div');
+    container.id = 'blockSelectionContainer';
+    container.className = 'mt-3 mb-3 p-3 border rounded';
+    
+    // Inserir após o seletor de camadas
+    const layerSelectGroup = document.getElementById('layerSelect').closest('.form-group');
+    
+    // Verificar se o elemento foi encontrado antes de acessar parentNode
+    if (layerSelectGroup) {
+      layerSelectGroup.parentNode.insertBefore(container, layerSelectGroup.nextSibling);
+    } else {
+      // Fallback: adicionar ao formulário ou a outro container existente
+      const form = document.querySelector('form') || document.body;
+      form.appendChild(container);
+    }
+    
+    return container;
   }
 
   // Converter para VTEX IO
@@ -172,6 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get the page name from our map
     const pageName = pageIdToNameMap[pageId];
     
+    // Obter os blocos selecionados
+    const selectedBlocks = Array.from(document.querySelectorAll('.block-checkbox:checked'))
+      .map(checkbox => checkbox.value);
+    
     if (!accessToken || !fileKey || !pageName || !layerId) {
       alert('Please fill in all fields');
       return;
@@ -183,11 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          accessToken, 
-          fileKey, 
-          pageName,  // Using page name instead of ID
-          layerId 
+        body: JSON.stringify({
+          accessToken,
+          fileKey,
+          pageName,
+          layerId,
+          selectedBlocks
         })
       });
       
